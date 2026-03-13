@@ -1,0 +1,15 @@
+# AirVision — Python dependencies
+# Install with:  pip install -r requirements.txt
+
+# Computer vision & hand detection
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+
+# Mouse / keyboard control
+pyautogui>=0.9.54
+
+# Numerical utilities
+numpy>=1.24.0
+
+# (Optional) nicer logging output in terminals that support it
+# colorlog>=6.7.0
