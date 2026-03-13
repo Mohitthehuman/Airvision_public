@@ -16,16 +16,21 @@ import logging
 import time
 from typing import Tuple
 
-import pyautogui
+try:
+    import pyautogui
+    pyautogui.PAUSE = 0          # disable built-in pause for real-time use
+    pyautogui.FAILSAFE = True    # overridden in __init__ after config loads
+    _PYAUTOGUI_AVAILABLE = True
+except (KeyError, Exception):
+    # Headless / no-display environment (e.g. CI, server).
+    # The rest of the module still loads; mouse calls become no-ops.
+    pyautogui = None              # type: ignore[assignment]
+    _PYAUTOGUI_AVAILABLE = False
 
 from config import cfg
 from utils.smoother import ExponentialSmoother
 
 logger = logging.getLogger(__name__)
-
-# Disable PyAutoGUI's built-in pause between calls for real-time performance
-pyautogui.PAUSE = 0
-pyautogui.FAILSAFE = cfg.cursor.failsafe
 
 
 class CursorController:
@@ -34,7 +39,12 @@ class CursorController:
     """
 
     def __init__(self) -> None:
-        self._screen_w, self._screen_h = pyautogui.size()
+        if _PYAUTOGUI_AVAILABLE:
+            pyautogui.FAILSAFE = cfg.cursor.failsafe
+            self._screen_w, self._screen_h = pyautogui.size()
+        else:
+            logger.warning("PyAutoGUI unavailable (no display). Mouse actions will be no-ops.")
+            self._screen_w, self._screen_h = 1920, 1080  # safe fallback
         self._smoother = ExponentialSmoother(alpha=cfg.cursor.smoothing_alpha)
 
         # Active zone margins (fraction of frame to ignore at each edge)
@@ -63,7 +73,8 @@ class CursorController:
         """
         sx, sy = self._to_screen(norm_x, norm_y)
         sx_smooth, sy_smooth = self._smoother.smooth(sx, sy)
-        pyautogui.moveTo(sx_smooth, sy_smooth)
+        if _PYAUTOGUI_AVAILABLE:
+            pyautogui.moveTo(sx_smooth, sy_smooth)
 
     def _to_screen(self, norm_x: float, norm_y: float) -> Tuple[float, float]:
         """Map normalised coordinates inside the active zone to screen coords."""
@@ -95,7 +106,8 @@ class CursorController:
         if now - self._last_click_time < cfg.gesture.click_cooldown_sec:
             return False
         self._last_click_time = now
-        pyautogui.click()
+        if _PYAUTOGUI_AVAILABLE:
+            pyautogui.click()
         logger.debug("Left click")
         return True
 
@@ -105,7 +117,8 @@ class CursorController:
         if now - self._last_click_time < cfg.gesture.click_cooldown_sec:
             return False
         self._last_click_time = now
-        pyautogui.rightClick()
+        if _PYAUTOGUI_AVAILABLE:
+            pyautogui.rightClick()
         logger.debug("Right click")
         return True
 
@@ -115,7 +128,8 @@ class CursorController:
         if now - self._last_click_time < cfg.gesture.click_cooldown_sec:
             return False
         self._last_click_time = now
-        pyautogui.doubleClick()
+        if _PYAUTOGUI_AVAILABLE:
+            pyautogui.doubleClick()
         logger.debug("Double click")
         return True
 
@@ -136,7 +150,8 @@ class CursorController:
             return False
         self._last_scroll_time = now
         units = cfg.gesture.scroll_speed * direction
-        pyautogui.scroll(units)
+        if _PYAUTOGUI_AVAILABLE:
+            pyautogui.scroll(units)
         logger.debug("Scroll %s", "up" if direction > 0 else "down")
         return True
 
